@@ -34,7 +34,9 @@ function useGlobalMetrics() {
       if (!res.ok) throw new Error("Failed to fetch global metrics");
       return res.json();
     },
-    staleTime: 120_000,
+    staleTime: 110_000,
+    refetchInterval: 120_000,    // auto-poll every 2 min
+    refetchOnWindowFocus: true,
   });
 }
 

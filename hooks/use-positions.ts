@@ -49,8 +49,10 @@ export function usePositions() {
       return results;
     },
     enabled: !!owner,
-    staleTime: 30_000,
+    staleTime: 25_000,
     gcTime: 5 * 60_000,
+    refetchInterval: 30_000,     // auto-poll every 30 s while page is open
+    refetchOnWindowFocus: true,
     retry: 2,
   });
 

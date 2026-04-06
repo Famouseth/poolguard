@@ -50,8 +50,10 @@ export function usePools() {
   const query = useQuery({
     queryKey: ["pools", "all"],
     queryFn: fetchAllPools,
-    staleTime: 60_000,         // re-fetch after 1 min
+    staleTime: 55_000,
     gcTime: 5 * 60_000,
+    refetchInterval: 60_000,      // auto-poll every 60 s
+    refetchOnWindowFocus: true,
     retry: 2,
   });
 

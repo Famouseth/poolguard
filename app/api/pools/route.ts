@@ -154,7 +154,7 @@ export async function GET(req: NextRequest) {
       { pools, fetchedAt: Date.now() },
       {
         headers: {
-          "Cache-Control": `s-maxage=${CACHE_TTL}, stale-while-revalidate=300`,
+          "Cache-Control": "s-maxage=30, stale-while-revalidate=60",
         },
       },
     );

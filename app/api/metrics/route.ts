@@ -64,7 +64,7 @@ export async function GET() {
     { totals, chains, fetchedAt: Date.now() },
     {
       headers: {
-        "Cache-Control": `s-maxage=${CACHE_TTL}, stale-while-revalidate=600`,
+        "Cache-Control": `s-maxage=${CACHE_TTL}, stale-while-revalidate=120`,
       },
     },
   );

@@ -204,3 +204,41 @@ export const TOKEN_QUERY = /* GraphQL */ `
     }
   }
 `;
+
+// ─── Token Search ─────────────────────────────────────────────────────────
+
+/** Search tokens by symbol (case-insensitive). Used by the TokenPicker UI. */
+export const TOKEN_SEARCH_BY_SYMBOL_QUERY = /* GraphQL */ `
+  query TokenSearchBySymbol($query: String!, $first: Int = 20) {
+    tokens(
+      where: { symbol_contains_nocase: $query }
+      first: $first
+      orderBy: totalValueLockedUSD
+      orderDirection: desc
+    ) {
+      id
+      symbol
+      name
+      decimals
+      totalValueLockedUSD
+    }
+  }
+`;
+
+/** Search tokens by address prefix. Used when user pastes an address. */
+export const TOKEN_SEARCH_BY_ADDRESS_QUERY = /* GraphQL */ `
+  query TokenSearchByAddress($id: String!, $first: Int = 10) {
+    tokens(
+      where: { id_contains: $id }
+      first: $first
+      orderBy: totalValueLockedUSD
+      orderDirection: desc
+    ) {
+      id
+      symbol
+      name
+      decimals
+      totalValueLockedUSD
+    }
+  }
+`;

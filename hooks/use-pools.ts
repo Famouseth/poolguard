@@ -7,10 +7,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAppStore } from "@/store";
 import type { Pool, ChainId } from "@/types";
-import {
-  calculateFeeAPR,
-  calcVolumeToTVL,
-} from "@/lib/calculations";
 
 // ─── API response shape ────────────────────────────────────────────────────
 
@@ -19,20 +15,32 @@ interface PoolsApiResponse {
   fetchedAt: number;
 }
 
+// Build the fetch URL for a chain, optionally passing custom token addresses
+function poolsUrl(chainId: ChainId, customAddresses: string[]): string {
+  const base = `/api/pools?chainId=${chainId}`;
+  if (customAddresses.length === 0) return base;
+  return `${base}&tokens=${encodeURIComponent(customAddresses.join(","))}`;
+}
+
 // ─── Fetch from Next.js API route (one call per chain) ─────────────────────
 
-async function fetchPoolsForChain(chainId: ChainId): Promise<Pool[]> {
-  const res = await fetch(`/api/pools?chainId=${chainId}`);
+async function fetchPoolsForChain(chainId: ChainId, customAddresses: string[]): Promise<Pool[]> {
+  const url = poolsUrl(chainId, customAddresses);
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to fetch pools for chain ${chainId}`);
   const json: PoolsApiResponse = await res.json();
   return json.pools ?? [];
 }
 
-async function fetchAllPools(): Promise<Pool[]> {
+async function fetchAllPools(customTokens: { address: string; chainId: ChainId }[]): Promise<Pool[]> {
+  // Build per-chain address lists from customTokens
+  const byChain = (chainId: ChainId) =>
+    customTokens.filter((t) => t.chainId === chainId).map((t) => t.address);
+
   const [eth, base, bnb] = await Promise.allSettled([
-    fetchPoolsForChain(1),
-    fetchPoolsForChain(8453),
-    fetchPoolsForChain(56),
+    fetchPoolsForChain(1, byChain(1)),
+    fetchPoolsForChain(8453, byChain(8453)),
+    fetchPoolsForChain(56, byChain(56)),
   ]);
 
   const results: Pool[] = [];
@@ -45,11 +53,17 @@ async function fetchAllPools(): Promise<Pool[]> {
 // ─── Hook ─────────────────────────────────────────────────────────────────
 
 export function usePools() {
-  const { filters } = useAppStore();
+  const { filters, customTokens } = useAppStore();
+
+  // Stable cache key that changes when user's custom token selection changes
+  const customKey = customTokens
+    .map((t) => `${t.chainId}:${t.address}`)
+    .sort()
+    .join(",");
 
   const query = useQuery({
-    queryKey: ["pools", "all"],
-    queryFn: fetchAllPools,
+    queryKey: ["pools", "all", customKey],
+    queryFn: () => fetchAllPools(customTokens),
     staleTime: 55_000,
     gcTime: 5 * 60_000,
     refetchInterval: 60_000,      // auto-poll every 60 s

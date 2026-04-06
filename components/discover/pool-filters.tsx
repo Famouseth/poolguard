@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TokenPicker } from "./token-picker";
 
 const MIN_TVL_OPTIONS = [
   { label: "Any",   value: 0 },
@@ -78,6 +79,11 @@ export function PoolFilters() {
           value={filters.searchQuery}
           onChange={(e) => setFilters({ searchQuery: e.target.value })}
         />
+      </div>
+
+      {/* Token picker — search any token and fetch only its pools */}
+      <div className="border-t border-border pt-3">
+        <TokenPicker />
       </div>
 
       {/* Chains */}

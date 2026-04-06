@@ -4,7 +4,7 @@
  */
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { Alert, ChainId, PoolFilters, WatchlistItem } from "@/types";
+import type { Alert, ChainId, PoolFilters, WatchlistItem, TokenInfo } from "@/types";
 import { SUPPORTED_CHAINS, FEE_TIERS } from "@/lib/constants";
 
 interface AppState {
@@ -28,6 +28,12 @@ interface AppState {
   addAlert: (alert: Omit<Alert, "id" | "createdAt" | "triggered">) => void;
   removeAlert: (id: string) => void;
   toggleAlert: (id: string) => void;
+
+  // Custom token selections (per-chain) for the TokenPicker
+  customTokens: (TokenInfo & { chainId: ChainId })[];
+  addCustomToken: (token: TokenInfo & { chainId: ChainId }) => void;
+  removeCustomToken: (address: string, chainId: ChainId) => void;
+  clearCustomTokens: () => void;
 
   // UI state
   sidebarCollapsed: boolean;
@@ -100,6 +106,23 @@ export const useAppStore = create<AppState>()(
           alerts: s.alerts.map((a) => (a.id === id ? { ...a, enabled: !a.enabled } : a)),
         })),
 
+      // ── Custom tokens ─────────────────────────────────────────────────
+      customTokens: [],
+      addCustomToken: (token) =>
+        set((s) => {
+          const already = s.customTokens.some(
+            (t) => t.address === token.address && t.chainId === token.chainId,
+          );
+          return already ? s : { customTokens: [...s.customTokens, token] };
+        }),
+      removeCustomToken: (address, chainId) =>
+        set((s) => ({
+          customTokens: s.customTokens.filter(
+            (t) => !(t.address === address && t.chainId === chainId),
+          ),
+        })),
+      clearCustomTokens: () => set({ customTokens: [] }),
+
       // ── UI ───────────────────────────────────────────────────────────────
       sidebarCollapsed: false,
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
@@ -113,6 +136,7 @@ export const useAppStore = create<AppState>()(
         filters: s.filters,
         watchlist: s.watchlist,
         alerts: s.alerts,
+        customTokens: s.customTokens,
         sidebarCollapsed: s.sidebarCollapsed,
       }),
     },

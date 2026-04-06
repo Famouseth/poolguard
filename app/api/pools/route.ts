@@ -112,7 +112,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Invalid chainId" }, { status: 400 });
   }
 
-  const tokenAddresses = PREFERRED_TOKENS[chainId];
+  // Optional `tokens` param — comma-separated lowercase addresses supplied by the TokenPicker.
+  // When present, these override the default PREFERRED_TOKENS list so users can fetch
+  // pools for any arbitrary token(s) they select.
+  const tokensParam = searchParams.get("tokens");
+  const customAddresses = tokensParam
+    ? tokensParam.split(",").map((a) => a.trim().toLowerCase()).filter(Boolean)
+    : null;
+
+  const tokenAddresses = customAddresses ?? PREFERRED_TOKENS[chainId];
+  const isCustom = customAddresses !== null && customAddresses.length > 0;
 
   try {
     // The Graph doesn't support OR in where filters, so we query by token0 and token1 separately
@@ -139,11 +148,20 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Filter: both tokens must be in our preferred list for maximum relevance
-    const preferred = new Set(tokenAddresses);
-    const filtered = raw.filter(
-      (p) => preferred.has(p.token0.id.toLowerCase()) && preferred.has(p.token1.id.toLowerCase()),
-    );
+    // For the default preferred list: require BOTH tokens to be preferred (high-relevance pairs).
+    // For custom token searches: require at LEAST ONE token to match (show all pools for that token).
+    const tokenSet = new Set(tokenAddresses);
+    const filtered = isCustom
+      ? raw.filter(
+          (p) =>
+            tokenSet.has(p.token0.id.toLowerCase()) ||
+            tokenSet.has(p.token1.id.toLowerCase()),
+        )
+      : raw.filter(
+          (p) =>
+            tokenSet.has(p.token0.id.toLowerCase()) &&
+            tokenSet.has(p.token1.id.toLowerCase()),
+        );
 
     const pools = filtered.map((p) => transformPool(p, chainId));
 

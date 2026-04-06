@@ -272,11 +272,31 @@ export const SUBGRAPH_URLS: Record<ChainId, string> = {
     "https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-v3-bsc",
 };
 
-// ─── RPC defaults (public fallbacks, override via .env) ────────────────────
-export const DEFAULT_RPC: Record<ChainId, string> = {
-  1: "https://cloudflare-eth.com",
-  8453: "https://mainnet.base.org",
-  56: "https://bsc-dataseed.binance.org",
+// ─── RPC defaults (free public endpoints from chainlist.org, override via .env) ─
+// Primary: LlamaRPC (DefiLlama) — run by the same team as ChainList, no key needed
+// Fallbacks: drpc.org, 1rpc.io, publicnode.com
+export const DEFAULT_RPC: Record<ChainId, string[]> = {
+  1: [
+    process.env.NEXT_PUBLIC_ETH_RPC_URL ?? "",
+    "https://eth.llamarpc.com",
+    "https://eth.drpc.org",
+    "https://1rpc.io/eth",
+    "https://ethereum-rpc.publicnode.com",
+  ].filter(Boolean),
+  8453: [
+    process.env.NEXT_PUBLIC_BASE_RPC_URL ?? "",
+    "https://base.llamarpc.com",
+    "https://base.drpc.org",
+    "https://1rpc.io/base",
+    "https://base-rpc.publicnode.com",
+  ].filter(Boolean),
+  56: [
+    process.env.NEXT_PUBLIC_BNB_RPC_URL ?? "",
+    "https://binance.llamarpc.com",
+    "https://bsc.drpc.org",
+    "https://1rpc.io/bnb",
+    "https://bsc-rpc.publicnode.com",
+  ].filter(Boolean),
 };
 
 // ─── Misc constants ─────────────────────────────────────────────────────────

@@ -1,8 +1,8 @@
 /**
  * Viem public clients for on-chain contract reads.
- * Used for reading NonfungiblePositionManager (uncollected fees, position state).
+ * Uses fallback transport over multiple free public RPCs from chainlist.org.
  */
-import { createPublicClient, http, type PublicClient } from "viem";
+import { createPublicClient, http, fallback, type PublicClient } from "viem";
 import { mainnet, base, bsc } from "viem/chains";
 import { DEFAULT_RPC, NFT_POSITION_MANAGER } from "@/lib/constants";
 import type { ChainId } from "@/types";
@@ -12,15 +12,15 @@ import type { ChainId } from "@/types";
 export const publicClients: Record<ChainId, PublicClient> = {
   1: createPublicClient({
     chain: mainnet,
-    transport: http(process.env.NEXT_PUBLIC_ETH_RPC_URL ?? DEFAULT_RPC[1]),
+    transport: fallback(DEFAULT_RPC[1].map((url) => http(url))),
   }) as PublicClient,
   8453: createPublicClient({
     chain: base,
-    transport: http(process.env.NEXT_PUBLIC_BASE_RPC_URL ?? DEFAULT_RPC[8453]),
+    transport: fallback(DEFAULT_RPC[8453].map((url) => http(url))),
   }) as PublicClient,
   56: createPublicClient({
     chain: bsc,
-    transport: http(process.env.NEXT_PUBLIC_BNB_RPC_URL ?? DEFAULT_RPC[56]),
+    transport: fallback(DEFAULT_RPC[56].map((url) => http(url))),
   }) as PublicClient,
 };
 

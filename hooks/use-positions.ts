@@ -11,19 +11,20 @@ import type { Position, ChainId } from "@/types";
 
 interface PositionsApiResponse {
   positions: Position[];
+  unavailable?: boolean;
   fetchedAt: number;
 }
 
 async function fetchPositionsForChain(
   owner: string,
   chainId: ChainId,
-): Promise<Position[]> {
+): Promise<{ positions: Position[]; unavailable: boolean }> {
   const res = await fetch(
     `/api/positions?owner=${owner.toLowerCase()}&chainId=${chainId}`,
   );
   if (!res.ok) throw new Error(`Failed to fetch positions for chain ${chainId}`);
   const json: PositionsApiResponse = await res.json();
-  return json.positions ?? [];
+  return { positions: json.positions ?? [], unavailable: !!json.unavailable };
 }
 
 export function usePositions() {
@@ -36,27 +37,29 @@ export function usePositions() {
   const query = useQuery({
     queryKey: ["positions", owner],
     queryFn: async () => {
-      if (!owner) return [];
+      if (!owner) return { positions: [], unavailable: false };
       const [eth, base, bnb] = await Promise.allSettled([
         fetchPositionsForChain(owner, 1),
         fetchPositionsForChain(owner, 8453),
         fetchPositionsForChain(owner, 56),
       ]);
       const results: Position[] = [];
-      if (eth.status === "fulfilled") results.push(...eth.value);
-      if (base.status === "fulfilled") results.push(...base.value);
-      if (bnb.status === "fulfilled") results.push(...bnb.value);
-      return results;
+      let unavailable = false;
+      if (eth.status === "fulfilled") { results.push(...eth.value.positions); unavailable = unavailable || eth.value.unavailable; }
+      if (base.status === "fulfilled") { results.push(...base.value.positions); unavailable = unavailable || base.value.unavailable; }
+      if (bnb.status === "fulfilled") { results.push(...bnb.value.positions); unavailable = unavailable || bnb.value.unavailable; }
+      return { positions: results, unavailable };
     },
     enabled: !!owner,
     staleTime: 25_000,
     gcTime: 5 * 60_000,
     refetchInterval: 30_000,     // auto-poll every 30 s while page is open
-    refetchOnWindowFocus: true,
-    retry: 2,
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
 
-  const positions = query.data ?? [];
+  const positions = query.data?.positions ?? [];
+  const unavailable = query.data?.unavailable ?? false;
 
   // Aggregated summary stats
   const summary = {
@@ -74,6 +77,7 @@ export function usePositions() {
   return {
     positions,
     summary,
+    unavailable,
     owner,
     isLoading: query.isLoading,
     isFetching: query.isFetching,

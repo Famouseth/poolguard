@@ -1,24 +1,12 @@
 /**
- * API route: GET /api/metrics/global
+ * API route: GET /api/metrics
  * Returns aggregated protocol stats for the dashboard header.
+ * Data sourced from GeckoTerminal (TVL, 24h volume, 24h fees).
  */
 import { NextResponse } from "next/server";
-import { querySubgraph } from "@/lib/subgraph";
-import { GLOBAL_STATS_QUERY } from "@/queries/pools";
+import { getUniswapPools } from "@/lib/geckoterminal";
 import { SUPPORTED_CHAINS, CACHE_TTL } from "@/lib/constants";
 import type { ChainId } from "@/types";
-
-interface Factory {
-  txCount: string;
-  totalVolumeUSD: string;
-  totalFeesUSD: string;
-  totalValueLockedUSD: string;
-  poolCount: string;
-}
-
-interface GlobalStatsData {
-  factories: Factory[];
-}
 
 export async function GET() {
   interface ChainStats {
@@ -27,21 +15,18 @@ export async function GET() {
     totalVolumeUSD: number;
     totalFeesUSD: number;
     poolCount: number;
-    txCount: number;
   }
 
   const results = await Promise.allSettled(
     SUPPORTED_CHAINS.map(async (chainId: ChainId): Promise<ChainStats | null> => {
-      const data = await querySubgraph<GlobalStatsData>(chainId, GLOBAL_STATS_QUERY);
-      const f = data.factories?.[0];
-      if (!f) return null;
+      const pools = await getUniswapPools(chainId);
+      if (!pools.length) return null;
       return {
         chainId,
-        totalValueLockedUSD: parseFloat(f.totalValueLockedUSD),
-        totalVolumeUSD: parseFloat(f.totalVolumeUSD),
-        totalFeesUSD: parseFloat(f.totalFeesUSD),
-        poolCount: parseInt(f.poolCount),
-        txCount: parseInt(f.txCount),
+        totalValueLockedUSD: pools.reduce((s, p) => s + p.totalValueLockedUSD, 0),
+        totalVolumeUSD: pools.reduce((s, p) => s + p.volumeUSD24h, 0),
+        totalFeesUSD: pools.reduce((s, p) => s + p.feesUSD24h, 0),
+        poolCount: pools.length,
       };
     }),
   );

@@ -35,8 +35,8 @@ function useGlobalMetrics() {
       return res.json();
     },
     staleTime: 110_000,
-    refetchInterval: 120_000,    // auto-poll every 2 min
-    refetchOnWindowFocus: true,
+    refetchInterval: 120_000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -49,13 +49,13 @@ const STATS = [
   },
   {
     key: "totalVolumeUSD" as const,
-    label: "All-time Volume",
+    label: "24h Volume",
     icon: Activity,
     colour: "text-cyan-400",
   },
   {
     key: "totalFeesUSD" as const,
-    label: "All-time Fees",
+    label: "24h Fees",
     icon: TrendingUp,
     colour: "text-profit",
   },

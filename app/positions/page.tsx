@@ -40,7 +40,7 @@ function SummaryCard({
 }
 
 export default function PositionsPage() {
-  const { positions, summary, isLoading, hasOwner, error } = usePositions();
+  const { positions, summary, isLoading, hasOwner, error, unavailable } = usePositions();
 
   return (
     <div className="space-y-5 max-w-4xl mx-auto">
@@ -88,6 +88,17 @@ export default function PositionsPage() {
             colour="text-cyan-400"
             sub={`${summary.outOfRangeCount} out of range`}
           />
+        </div>
+      )}
+
+      {/* Unavailable notice */}
+      {unavailable && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400 p-4 text-sm flex items-start gap-2">
+          <span className="text-base">⚠</span>
+          <span>
+            Position tracking is temporarily unavailable — the data provider (The Graph hosted service) was shut down.
+            Pool analytics on the Discover page are fully operational.
+          </span>
         </div>
       )}
 

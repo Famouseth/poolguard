@@ -4,6 +4,7 @@
  */
 "use client";
 
+import { useState, useEffect } from "react";
 import { useAppStore } from "@/store";
 import {
   SUPPORTED_CHAINS,
@@ -39,6 +40,20 @@ const MIN_APR_OPTIONS = [
 
 export function PoolFilters() {
   const { filters, setFilters, resetFilters } = useAppStore();
+
+  // Local search state — debounced 300 ms before writing to global store.
+  // Prevents the entire pool table from re-filtering on every keystroke.
+  const [localSearch, setLocalSearch] = useState(filters.searchQuery);
+
+  // Sync local state if store is reset externally (e.g. Reset button)
+  useEffect(() => {
+    setLocalSearch(filters.searchQuery);
+  }, [filters.searchQuery]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setFilters({ searchQuery: localSearch }), 300);
+    return () => clearTimeout(t);
+  }, [localSearch, setFilters]);
 
   function toggleChain(chainId: ChainId) {
     const current = filters.chainIds;
@@ -76,8 +91,8 @@ export function PoolFilters() {
         <Input
           placeholder="Search pool, token…"
           className="pl-8 h-8 text-xs"
-          value={filters.searchQuery}
-          onChange={(e) => setFilters({ searchQuery: e.target.value })}
+          value={localSearch}
+          onChange={(e) => setLocalSearch(e.target.value)}
         />
       </div>
 

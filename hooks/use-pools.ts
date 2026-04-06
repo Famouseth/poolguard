@@ -4,7 +4,8 @@
  */
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { useAppStore } from "@/store";
 import type { Pool, ChainId } from "@/types";
 
@@ -66,44 +67,46 @@ export function usePools() {
     queryFn: () => fetchAllPools(customTokens),
     staleTime: 55_000,
     gcTime: 5 * 60_000,
-    refetchInterval: 60_000,      // auto-poll every 60 s
-    refetchOnWindowFocus: true,
-    retry: 2,
+    refetchInterval: 120_000,          // poll every 2 min — less churn
+    refetchOnWindowFocus: false,       // clicking buttons was triggering full refetch
+    placeholderData: keepPreviousData, // keep showing old data while refetching
+    retry: 1,
   });
 
-  // Client-side filtering + sorting
-  const pools = (query.data ?? []).filter((pool) => {
-    if (!filters.chainIds.includes(pool.chainId)) return false;
-    if (!filters.feeTiers.includes(pool.feeTier)) return false;
-    if (pool.totalValueLockedUSD < filters.minTVL) return false;
-    if (filters.minAPR > 0 && (pool.feeAPR ?? 0) < filters.minAPR) return false;
-    if (filters.tokenAddresses.length > 0) {
-      const hasToken =
-        filters.tokenAddresses.includes(pool.token0.address) ||
-        filters.tokenAddresses.includes(pool.token1.address);
-      if (!hasToken) return false;
-    }
-    if (filters.searchQuery) {
-      const q = filters.searchQuery.toLowerCase();
-      const label = `${pool.token0.symbol}/${pool.token1.symbol} ${pool.id}`.toLowerCase();
-      if (!label.includes(q)) return false;
-    }
-    return true;
-  });
-
-  // Sort
-  const sorted = [...pools].sort((a, b) => {
-    let aVal = 0;
-    let bVal = 0;
-    switch (filters.sortBy) {
-      case "feeAPR":      aVal = a.feeAPR ?? 0;      bVal = b.feeAPR ?? 0;      break;
-      case "feeAPR7d":    aVal = a.feeAPR7d ?? 0;    bVal = b.feeAPR7d ?? 0;    break;
-      case "tvl":         aVal = a.totalValueLockedUSD; bVal = b.totalValueLockedUSD; break;
-      case "volume24h":   aVal = a.volumeUSD24h;      bVal = b.volumeUSD24h;     break;
-      case "volumeToTVL": aVal = a.volumeToTVL ?? 0; bVal = b.volumeToTVL ?? 0; break;
-    }
-    return filters.sortDirection === "desc" ? bVal - aVal : aVal - bVal;
-  });
+  // Client-side filtering + sorting — memoised so it only reruns when data/filters change
+  const sorted = useMemo(() => {
+    const data = query.data ?? [];
+    const filtered = data.filter((pool) => {
+      if (!filters.chainIds.includes(pool.chainId)) return false;
+      if (!filters.feeTiers.includes(pool.feeTier)) return false;
+      if (pool.totalValueLockedUSD < filters.minTVL) return false;
+      if (filters.minAPR > 0 && (pool.feeAPR ?? 0) < filters.minAPR) return false;
+      if (filters.tokenAddresses.length > 0) {
+        const hasToken =
+          filters.tokenAddresses.includes(pool.token0.address) ||
+          filters.tokenAddresses.includes(pool.token1.address);
+        if (!hasToken) return false;
+      }
+      if (filters.searchQuery) {
+        const q = filters.searchQuery.toLowerCase();
+        const label = `${pool.token0.symbol}/${pool.token1.symbol} ${pool.id}`.toLowerCase();
+        if (!label.includes(q)) return false;
+      }
+      return true;
+    });
+    return [...filtered].sort((a, b) => {
+      let aVal = 0;
+      let bVal = 0;
+      switch (filters.sortBy) {
+        case "feeAPR":      aVal = a.feeAPR ?? 0;      bVal = b.feeAPR ?? 0;      break;
+        case "feeAPR7d":    aVal = a.feeAPR7d ?? 0;    bVal = b.feeAPR7d ?? 0;    break;
+        case "tvl":         aVal = a.totalValueLockedUSD; bVal = b.totalValueLockedUSD; break;
+        case "volume24h":   aVal = a.volumeUSD24h;      bVal = b.volumeUSD24h;     break;
+        case "volumeToTVL": aVal = a.volumeToTVL ?? 0; bVal = b.volumeToTVL ?? 0; break;
+      }
+      return filters.sortDirection === "desc" ? bVal - aVal : aVal - bVal;
+    });
+  }, [query.data, filters]);
 
   return {
     pools: sorted,

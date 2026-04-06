@@ -111,10 +111,20 @@ interface GeckoResponse<T> {
 
 async function geckoFetch<T>(path: string): Promise<{ data: T; included: GeckoTokenItem[] }> {
   const url = `${BASE_URL}${path}`;
-  const res = await fetch(url, {
-    headers: { Accept: "application/json;version=20230302" },
-    next: { revalidate: 60 }, // Next.js server-side cache
-  });
+  // 12-second timeout prevents a slow chain from freezing the entire request
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12_000);
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: { Accept: "application/json;version=20230302" },
+      next: { revalidate: 60 }, // Next.js server-side cache
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (res.status === 429) {
     // Rate limited — return empty gracefully

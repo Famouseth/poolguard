@@ -8,6 +8,7 @@
 
 import type { ChainId, Pool, TokenInfo } from "@/types";
 import { calculateFeeAPR, calcVolumeToTVL } from "@/lib/calculations";
+import { TOKEN_MAP } from "@/lib/constants";
 
 // ─── Constants ────────────────────────────────────────────────────────────
 
@@ -42,12 +43,33 @@ export const GECKO_ANCHOR_TOKENS: Record<ChainId, string[]> = {
   8453: [
     "0x4200000000000000000000000000000000000006", // WETH on Base
     "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", // USDC on Base
+    "0xc1cba3fcea344f92d9239c08c0568f6f2f0ee452", // wstETH on Base
+    "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf", // cbBTC on Base
+    "0x2ae3f1ec7f1f5012cfeab0185bfc7aa3cf0dec22", // cbETH on Base
+    "0x04c0599ae5a44757c0af6f9ec3b93da8976c150a", // weETH on Base
   ],
   56: [
     "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c", // WBNB
     "0x55d398326f99059ff775485246999027b3197955", // USDT on BSC
   ],
 };
+
+/**
+ * Per-chain set of whitelisted token addresses (Aave V3-grade / blue-chip only).
+ * Pools where either token is NOT in this set are filtered out.
+ * Built lazily from TOKEN_MAP at first call.
+ */
+let _allowedAddrs: Record<ChainId, Set<string>> | null = null;
+function getAllowedAddrs(): Record<ChainId, Set<string>> {
+  if (!_allowedAddrs) {
+    _allowedAddrs = {
+      1: new Set(Object.keys(TOKEN_MAP[1])),
+      8453: new Set(Object.keys(TOKEN_MAP[8453])),
+      56: new Set(Object.keys(TOKEN_MAP[56])),
+    };
+  }
+  return _allowedAddrs;
+}
 
 // ─── GeckoTerminal response types ─────────────────────────────────────────
 
@@ -313,7 +335,14 @@ export async function getUniswapPools(
 
   return unique
     .map((p) => geckoPoolToPool(p, chainId, tokenMap))
-    .filter((p) => p.totalValueLockedUSD > 0);
+    .filter((p) => {
+      if (p.totalValueLockedUSD <= 0) return false;
+      // When the user has selected custom tokens, trust their choice and show all results.
+      // Otherwise enforce the blue-chip whitelist: both tokens must be Aave V3-grade.
+      if (customAddresses?.length) return true;
+      const allowed = getAllowedAddrs()[chainId];
+      return allowed.has(p.token0.address) && allowed.has(p.token1.address);
+    });
 }
 
 /**

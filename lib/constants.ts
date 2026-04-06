@@ -144,6 +144,64 @@ export const ETH_TOKENS: Record<string, TokenInfo> = {
     coingeckoId: "rocket-pool-eth",
     isLST: true,
   },
+  weETH: {
+    address: "0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee",
+    symbol: "weETH",
+    name: "Wrapped eETH",
+    decimals: 18,
+    coingeckoId: "wrapped-eeth",
+    isLST: true,
+  },
+  ezETH: {
+    address: "0xbf5495efe5db9ce00f80364c8b423567e58d2110",
+    symbol: "ezETH",
+    name: "Renzo Restaked ETH",
+    decimals: 18,
+    coingeckoId: "renzo-restaked-eth",
+    isLST: true,
+  },
+  DAI: {
+    address: "0x6b175474e89094c44da98b954eedeac495271d0f",
+    symbol: "DAI",
+    name: "Dai Stablecoin",
+    decimals: 18,
+    coingeckoId: "dai",
+  },
+  sDAI: {
+    address: "0x83f20f44975d03b1b09e64809b757c47f942beea",
+    symbol: "sDAI",
+    name: "Savings Dai",
+    decimals: 18,
+    coingeckoId: "savings-dai",
+  },
+  GHO: {
+    address: "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f",
+    symbol: "GHO",
+    name: "GHO Token",
+    decimals: 18,
+    coingeckoId: "gho",
+  },
+  AAVE: {
+    address: "0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9",
+    symbol: "AAVE",
+    name: "Aave Token",
+    decimals: 18,
+    coingeckoId: "aave",
+  },
+  LINK: {
+    address: "0x514910771af9ca656af840dff83e8264ecf986ca",
+    symbol: "LINK",
+    name: "ChainLink Token",
+    decimals: 18,
+    coingeckoId: "chainlink",
+  },
+  LUSD: {
+    address: "0x5f98805a4e8be255a32880fdec7f6728c6568ba0",
+    symbol: "LUSD",
+    name: "LUSD Stablecoin",
+    decimals: 18,
+    coingeckoId: "liquity-usd",
+  },
 };
 
 /** Base (chainId: 8453) */
@@ -206,6 +264,28 @@ export const BASE_TOKENS: Record<string, TokenInfo> = {
     decimals: 18,
     coingeckoId: "rocket-pool-eth",
     isLST: true,
+  },
+  weETH: {
+    address: "0x04c0599ae5a44757c0af6f9ec3b93da8976c150a",
+    symbol: "weETH",
+    name: "Wrapped eETH",
+    decimals: 18,
+    coingeckoId: "wrapped-eeth",
+    isLST: true,
+  },
+  DAI: {
+    address: "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+    symbol: "DAI",
+    name: "Dai Stablecoin",
+    decimals: 18,
+    coingeckoId: "dai",
+  },
+  AAVE: {
+    address: "0xa76baedc7ff1da7ef6a2aec70a5b905fcf7c79de",
+    symbol: "AAVE",
+    name: "Aave Token",
+    decimals: 18,
+    coingeckoId: "aave",
   },
 };
 

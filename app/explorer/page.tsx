@@ -16,6 +16,7 @@ import {
   Plus,
   Minus,
   Coins,
+  Bell,
   Users,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TokenPair } from "@/components/shared/token-pair";
 import { ChainBadge } from "@/components/shared/chain-badge";
 import { FeeTierBadge } from "@/components/shared/fee-tier-badge";
+import { useAppStore } from "@/store";
 import { usePools } from "@/hooks/use-pools";
 import { usePoolTrades } from "@/hooks/use-pool-trades";
 import { usePoolOHLCV } from "@/hooks/use-pool-ohlcv";
@@ -166,10 +168,13 @@ type TxTab = "swaps" | "lp";
 
 // --- Detail panel ---
 
-function PoolDetailPanel({ pool }: { pool: Pool }) {
+function PoolDetailPanel({ pool, alerts }: { pool: Pool; alerts: import("@/types").Alert[] }) {
   const [chartSrc, setChartSrc] = useState<ChartSrc>("dexscreener");
   const [chartRange, setChartRange] = useState<"hour" | "day">("hour");
   const [txTab, setTxTab] = useState<TxTab>("swaps");
+
+  const poolAlerts = alerts.filter((a) => a.poolId === pool.id && a.chainId === pool.chainId);
+  const triggeredAlerts = poolAlerts.filter((a) => a.triggered && a.enabled);
 
   const { data: candles = [], isFetching: ohlcvFetching } = usePoolOHLCV(
     chartSrc === "ohlcv" ? pool.id : null,
@@ -229,6 +234,18 @@ function PoolDetailPanel({ pool }: { pool: Pool }) {
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <FeeTierBadge feeTier={pool.feeTier} />
                   <ChainBadge chainId={pool.chainId} />
+                  {triggeredAlerts.length > 0 && (
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-destructive bg-destructive/10 border border-destructive/30 rounded-full px-2 py-0.5 animate-pulse">
+                      <Bell className="w-2.5 h-2.5" />
+                      {triggeredAlerts.length} alert{triggeredAlerts.length > 1 ? "s" : ""} triggered
+                    </span>
+                  )}
+                  {poolAlerts.length > 0 && triggeredAlerts.length === 0 && (
+                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground bg-secondary rounded-full px-2 py-0.5">
+                      <Bell className="w-2.5 h-2.5" />
+                      {poolAlerts.length} alert{poolAlerts.length > 1 ? "s" : ""}
+                    </span>
+                  )}
                 </div>
                 <p className="text-[11px] text-muted-foreground font-mono break-all">{pool.id}</p>
               </div>
@@ -587,6 +604,7 @@ function ExplorerPageContent() {
   const chainParam = searchParams?.get("chain");
 
   const { allPools, isLoading } = usePools();
+  const { alerts } = useAppStore();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Pool | null>(null);
 
@@ -637,6 +655,9 @@ function ExplorerPageContent() {
             ? Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)
             : filtered.map((pool) => {
                 const isSelected = selected?.id === pool.id && selected?.chainId === pool.chainId;
+                const poolAlerts = alerts.filter((a) => a.poolId === pool.id && a.chainId === pool.chainId);
+                const hasTriggered = poolAlerts.some((a) => a.triggered && a.enabled);
+                const alertCount = poolAlerts.length;
                 return (
                   <button
                     key={`${pool.chainId}-${pool.id}`}
@@ -645,9 +666,22 @@ function ExplorerPageContent() {
                   >
                     <div className="flex flex-col gap-1 min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <TokenPair token0={pool.token0} token1={pool.token1} size="sm" />
-                        <FeeTierBadge feeTier={pool.feeTier} />
-                      </div>
+                            <TokenPair token0={pool.token0} token1={pool.token1} size="sm" />
+                            <FeeTierBadge feeTier={pool.feeTier} />
+                            {alertCount > 0 && (
+                              <span
+                                className={cn(
+                                  "text-[9px] px-1 py-0.5 rounded-full font-bold leading-none",
+                                  hasTriggered
+                                    ? "bg-destructive text-destructive-foreground animate-pulse"
+                                    : "bg-primary/15 text-primary",
+                                )}
+                                title={hasTriggered ? "Alert triggered!" : `${alertCount} alert${alertCount > 1 ? "s" : ""}`}
+                              >
+                                {hasTriggered ? "⚡" : alertCount}
+                              </span>
+                            )}
+                          </div>
                       <div className="flex items-center gap-2">
                         <ChainBadge chainId={pool.chainId} size="sm" />
                         <span className="text-[10px] text-muted-foreground tabular-nums">TVL {formatUSD(pool.totalValueLockedUSD, true)}</span>
@@ -665,7 +699,7 @@ function ExplorerPageContent() {
         {/* Detail panel */}
         <div className="flex-1 min-w-0">
           {selected ? (
-            <PoolDetailPanel pool={selected} />
+            <PoolDetailPanel pool={selected} alerts={alerts} />
           ) : (
             <div className="flex flex-col items-center justify-center h-60 text-muted-foreground gap-3 rounded-lg border border-border">
               <BarChart3 className="w-10 h-10" />

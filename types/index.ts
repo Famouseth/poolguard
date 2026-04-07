@@ -140,7 +140,13 @@ export interface PositionMetrics {
 }
 
 // ─── Alerts ──────────────────────────────────────────────────────────────────
-export type AlertType = "apr_spike" | "range_exit" | "volume_surge" | "fee_collect";
+export type AlertType =
+  | "apr_spike"
+  | "range_exit"
+  | "volume_surge"
+  | "fee_collect"
+  | "price_above"
+  | "price_below";
 
 export interface Alert {
   id: string;
@@ -154,6 +160,18 @@ export interface Alert {
   triggeredAt?: number;
   createdAt: number;
   enabled: boolean;
+  /** How many times this alert has been re-armed after firing */
+  rearmCount?: number;
+}
+
+export interface AlertHistoryEntry {
+  alertId: string;
+  type: AlertType;
+  poolLabel: string;
+  chainId: ChainId;
+  threshold: number;
+  firedValue: number;
+  firedAt: number;
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────

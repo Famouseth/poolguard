@@ -22,6 +22,9 @@ import {
   Send,
   Loader2,
   Zap,
+  RotateCcw,
+  History,
+  TrendingUp,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +43,8 @@ const ALERT_TYPE_LABELS: Record<AlertType, string> = {
   range_exit: "Range Exit",
   volume_surge: "Volume Surge",
   fee_collect: "Fee Collect",
+  price_above: "Price Above",
+  price_below: "Price Below",
 };
 
 const ALERT_TYPE_DESC: Record<AlertType, string> = {
@@ -47,6 +52,8 @@ const ALERT_TYPE_DESC: Record<AlertType, string> = {
   range_exit: "Triggers when APR drops below this threshold (%)",
   volume_surge: "Triggers when 24h volume exceeds this threshold (USD)",
   fee_collect: "Triggers when 24h fees exceed this threshold (USD)",
+  price_above: "Triggers when token0 price (in token1) rises above this value",
+  price_below: "Triggers when token0 price (in token1) falls below this value",
 };
 
 export default function AlertsPage() {
@@ -56,6 +63,7 @@ export default function AlertsPage() {
     addAlert,
     removeAlert,
     toggleAlert,
+    rearmAlert,
     removeFromWatchlist,
     triggerAlerts,
     exportData,
@@ -63,12 +71,15 @@ export default function AlertsPage() {
     anonymousId,
     notificationSettings,
     updateNotificationSettings,
+    alertHistory,
+    clearAlertHistory,
   } = useAppStore();
   const { allPools, isLoading } = usePools();
 
   const [newType, setNewType] = useState<AlertType>("apr_spike");
   const [threshold, setThreshold] = useState("20");
   const [poolSearch, setPoolSearch] = useState("");
+  const [activeTab, setActiveTab] = useState<"alerts" | "history">("alerts");
   const [copiedId, setCopiedId] = useState(false);
   const [copiedExport, setCopiedExport] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -340,6 +351,8 @@ export default function AlertsPage() {
                 Threshold
                 {newType === "apr_spike" || newType === "range_exit"
                   ? " (% APR)"
+                  : newType === "price_above" || newType === "price_below"
+                  ? " (token0 price in token1)"
                   : " (USD)"}
               </p>
               <Input
@@ -351,6 +364,8 @@ export default function AlertsPage() {
                 placeholder={
                   newType === "volume_surge" || newType === "fee_collect"
                     ? "e.g. 50000"
+                    : newType === "price_above" || newType === "price_below"
+                    ? "e.g. 3500"
                     : "e.g. 20"
                 }
               />
@@ -391,6 +406,8 @@ export default function AlertsPage() {
                             currentValue:
                               newType === "apr_spike" || newType === "range_exit"
                                 ? pool.feeAPR ?? 0
+                                : newType === "price_above" || newType === "price_below"
+                                ? pool.token0Price
                                 : pool.volumeUSD24h,
                             enabled: true,
                           });
@@ -421,146 +438,244 @@ export default function AlertsPage() {
         </Card>
       </div>
 
-      {/* ── Active Alerts ───────────────────────────────────────────────── */}
+      {/* ── Active Alerts / History ─────────────────────────────────── */}
       <Card className="glass">
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Bell className="w-4 h-4 text-primary" />
-            Active Alerts
-            <span className="text-muted-foreground font-normal text-sm">
-              ({alerts.length})
-            </span>
-            {triggeredCount > 0 && (
-              <Badge variant="destructive" className="text-[10px] ml-1">
-                {triggeredCount} triggered
-              </Badge>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setActiveTab("alerts")}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                  activeTab === "alerts"
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Bell className="w-4 h-4" />
+                Active Alerts
+                <span className="text-muted-foreground font-normal text-xs">({alerts.length})</span>
+                {triggeredCount > 0 && (
+                  <Badge variant="destructive" className="text-[10px] ml-1">
+                    {triggeredCount}
+                  </Badge>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab("history")}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                  activeTab === "history"
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <History className="w-4 h-4" />
+                History
+                <span className="text-muted-foreground font-normal text-xs">({alertHistory.length})</span>
+              </button>
+            </div>
+            {activeTab === "history" && alertHistory.length > 0 && (
+              <button
+                onClick={clearAlertHistory}
+                className="text-[10px] text-muted-foreground hover:text-destructive transition-colors flex items-center gap-1"
+              >
+                <Trash2 className="w-3 h-3" /> Clear
+              </button>
             )}
-          </CardTitle>
+          </div>
         </CardHeader>
         <CardContent>
-          {alerts.length === 0 ? (
-            <div className="text-center py-10 space-y-2">
-              <Bell className="w-8 h-8 mx-auto text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground">No alerts configured yet.</p>
-              <p className="text-xs text-muted-foreground">
-                Use the form above to create your first alert.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {alerts.map((alert) => {
-                const livePool = allPools?.find(
-                  (p) => p.id === alert.poolId && p.chainId === alert.chainId,
-                );
-                const liveValue = livePool
-                  ? alert.type === "apr_spike" || alert.type === "range_exit"
-                    ? livePool.feeAPR ?? 0
-                    : alert.type === "volume_surge"
-                    ? livePool.volumeUSD24h
-                    : livePool.feesUSD24h
-                  : null;
-                const isTriggered = alert.triggered && alert.enabled;
+          {activeTab === "alerts" ? (
+            <>
+              {alerts.length === 0 ? (
+                <div className="text-center py-10 space-y-2">
+                  <Bell className="w-8 h-8 mx-auto text-muted-foreground/30" />
+                  <p className="text-sm text-muted-foreground">No alerts configured yet.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Use the form above to create your first alert.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {alerts.map((alert) => {
+                    const livePool = allPools?.find(
+                      (p) => p.id === alert.poolId && p.chainId === alert.chainId,
+                    );
+                    const liveValue = livePool
+                      ? alert.type === "apr_spike" || alert.type === "range_exit"
+                        ? livePool.feeAPR ?? 0
+                        : alert.type === "volume_surge"
+                        ? livePool.volumeUSD24h
+                        : alert.type === "fee_collect"
+                        ? livePool.feesUSD24h
+                        : livePool.token0Price
+                      : null;
+                    const isTriggered = alert.triggered && alert.enabled;
+                    const isPrice = alert.type === "price_above" || alert.type === "price_below";
+                    const isUsd = alert.type === "volume_surge" || alert.type === "fee_collect";
 
-                return (
-                  <div
-                    key={alert.id}
-                    className={cn(
-                      "flex items-start justify-between p-3 rounded-lg border transition-colors gap-3",
-                      isTriggered
-                        ? "border-destructive/40 bg-destructive/5"
-                        : alert.enabled
-                        ? "border-border"
-                        : "border-border/30 opacity-55",
-                    )}
-                  >
-                    <div className="mt-0.5 shrink-0">
-                      {isTriggered ? (
-                        <AlertTriangle className="w-4 h-4 text-destructive" />
-                      ) : (
-                        <Bell className="w-4 h-4 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium">{alert.poolLabel}</span>
-                        <ChainBadge chainId={alert.chainId} size="sm" />
-                        <Badge
-                          variant={isTriggered ? "destructive" : "secondary"}
-                          className="text-[10px]"
-                        >
-                          {ALERT_TYPE_LABELS[alert.type]}
-                        </Badge>
-                        {isTriggered && (
-                          <span className="text-[10px] font-bold text-destructive uppercase tracking-wide">
-                            ⚠ Triggered
-                          </span>
+                    return (
+                      <div
+                        key={alert.id}
+                        className={cn(
+                          "flex items-start justify-between p-3 rounded-lg border transition-colors gap-3",
+                          isTriggered
+                            ? "border-destructive/40 bg-destructive/5"
+                            : alert.enabled
+                            ? "border-border"
+                            : "border-border/30 opacity-55",
                         )}
-                      </div>
-                      <div className="flex items-center gap-3 mt-1 text-[10px] text-muted-foreground flex-wrap">
-                        <span>
-                          Threshold:{" "}
-                          <span className="text-foreground tabular-nums font-medium">
-                            {alert.threshold}
-                            {alert.type === "apr_spike" || alert.type === "range_exit"
-                              ? "%"
-                              : " USD"}
-                          </span>
-                        </span>
-                        {liveValue !== null && (
-                          <span>
-                            Now:{" "}
-                            <span className={cn("tabular-nums font-medium", aprClass(
-                              alert.type === "volume_surge" || alert.type === "fee_collect"
-                                ? 10
-                                : liveValue,
-                            ))}>
-                              {alert.type === "volume_surge" || alert.type === "fee_collect"
-                                ? formatUSD(liveValue, true)
-                                : formatPct(liveValue, 1)}
+                      >
+                        <div className="mt-0.5 shrink-0">
+                          {isTriggered ? (
+                            <AlertTriangle className="w-4 h-4 text-destructive" />
+                          ) : isPrice ? (
+                            <TrendingUp className="w-4 h-4 text-muted-foreground" />
+                          ) : (
+                            <Bell className="w-4 h-4 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium">{alert.poolLabel}</span>
+                            <ChainBadge chainId={alert.chainId} size="sm" />
+                            <Badge
+                              variant={isTriggered ? "destructive" : "secondary"}
+                              className="text-[10px]"
+                            >
+                              {ALERT_TYPE_LABELS[alert.type]}
+                            </Badge>
+                            {isTriggered && (
+                              <span className="text-[10px] font-bold text-destructive uppercase tracking-wide">
+                                ⚠ Triggered
+                              </span>
+                            )}
+                            {(alert.rearmCount ?? 0) > 0 && (
+                              <span className="text-[10px] text-muted-foreground">
+                                re-armed ×{alert.rearmCount}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 mt-1 text-[10px] text-muted-foreground flex-wrap">
+                            <span>
+                              Threshold:{" "}
+                              <span className="text-foreground tabular-nums font-medium">
+                                {isPrice
+                                  ? alert.threshold.toLocaleString("en-US", { maximumFractionDigits: 6 })
+                                  : isUsd
+                                  ? `$${alert.threshold.toLocaleString("en-US", { maximumFractionDigits: 0 })}`
+                                  : `${alert.threshold}%`}
+                              </span>
                             </span>
-                          </span>
-                        )}
-                        <span>Created {formatDate(alert.createdAt)}</span>
-                        {alert.triggeredAt && (
-                          <span className="text-destructive">
-                            Fired {formatDate(alert.triggeredAt)}
-                          </span>
-                        )}
+                            {liveValue !== null && (
+                              <span>
+                                Now:{" "}
+                                <span className={cn("tabular-nums font-medium", aprClass(isUsd ? 10 : liveValue))}>
+                                  {isPrice
+                                    ? liveValue.toLocaleString("en-US", { maximumFractionDigits: 6 })
+                                    : isUsd
+                                    ? formatUSD(liveValue, true)
+                                    : formatPct(liveValue, 1)}
+                                </span>
+                              </span>
+                            )}
+                            <span>Created {formatDate(alert.createdAt)}</span>
+                            {alert.triggeredAt && (
+                              <span className="text-destructive">
+                                Fired {formatDate(alert.triggeredAt)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {isTriggered && (
+                            <button
+                              onClick={() => rearmAlert(alert.id)}
+                              className="p-1.5 text-muted-foreground hover:text-primary transition-colors rounded"
+                              title="Re-arm alert (watch again)"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {livePool && (
+                            <Link
+                              href={`/explorer?pool=${livePool.id}&chain=${livePool.chainId}`}
+                              className="p-1.5 text-muted-foreground hover:text-primary transition-colors rounded"
+                              title="View pool in Explorer"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </Link>
+                          )}
+                          <button
+                            onClick={() => toggleAlert(alert.id)}
+                            className="text-muted-foreground hover:text-foreground transition-colors p-1"
+                            title={alert.enabled ? "Disable alert" : "Enable alert"}
+                          >
+                            {alert.enabled ? (
+                              <ToggleRight className="w-5 h-5 text-primary" />
+                            ) : (
+                              <ToggleLeft className="w-5 h-5" />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => removeAlert(alert.id)}
+                            className="text-muted-foreground hover:text-destructive transition-colors p-1.5 rounded"
+                            title="Delete alert"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      {livePool && (
-                        <Link
-                          href={`/explorer?pool=${livePool.id}&chain=${livePool.chainId}`}
-                          className="p-1.5 text-muted-foreground hover:text-primary transition-colors rounded"
-                          title="View pool in Explorer"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </Link>
-                      )}
-                      <button
-                        onClick={() => toggleAlert(alert.id)}
-                        className="text-muted-foreground hover:text-foreground transition-colors p-1"
-                        title={alert.enabled ? "Disable alert" : "Enable alert"}
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          ) : (
+            /* ── History tab ─────────────────────────────────────────────── */
+            <>
+              {alertHistory.length === 0 ? (
+                <div className="text-center py-10 space-y-2">
+                  <History className="w-8 h-8 mx-auto text-muted-foreground/30" />
+                  <p className="text-sm text-muted-foreground">No alert history yet.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Fired alerts will appear here (up to 100 entries).
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {[...alertHistory].reverse().map((entry, i) => {
+                    const isPrice = entry.type === "price_above" || entry.type === "price_below";
+                    const isUsd = entry.type === "volume_surge" || entry.type === "fee_collect";
+                    const fmtVal = isPrice
+                      ? entry.firedValue.toLocaleString("en-US", { maximumFractionDigits: 6 })
+                      : isUsd
+                      ? formatUSD(entry.firedValue, true)
+                      : formatPct(entry.firedValue, 1);
+                    return (
+                      <div
+                        key={`${entry.alertId}-${entry.firedAt}-${i}`}
+                        className="flex items-center justify-between px-3 py-2 rounded-lg bg-secondary/30 text-xs"
                       >
-                        {alert.enabled ? (
-                          <ToggleRight className="w-5 h-5 text-primary" />
-                        ) : (
-                          <ToggleLeft className="w-5 h-5" />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => removeAlert(alert.id)}
-                        className="text-muted-foreground hover:text-destructive transition-colors p-1.5 rounded"
-                        title="Delete alert"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <AlertTriangle className="w-3 h-3 text-destructive shrink-0" />
+                          <span className="font-medium truncate">{entry.poolLabel}</span>
+                          <ChainBadge chainId={entry.chainId} size="sm" />
+                          <Badge variant="secondary" className="text-[10px] shrink-0">
+                            {ALERT_TYPE_LABELS[entry.type]}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-3 tabular-nums text-muted-foreground shrink-0 ml-2">
+                          <span className="text-destructive font-medium">{fmtVal}</span>
+                          <span>{formatDate(entry.firedAt)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

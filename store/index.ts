@@ -5,7 +5,7 @@
  */
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { Alert, AlertType, ChainId, Pool, PoolFilters, WatchlistItem, TokenInfo, NotificationSettings } from "@/types";
+import type { Alert, AlertType, AlertHistoryEntry, ChainId, Pool, PoolFilters, WatchlistItem, TokenInfo, NotificationSettings } from "@/types";
 import { SUPPORTED_CHAINS, FEE_TIERS } from "@/lib/constants";
 
 // ─── Anonymous ID helper ─────────────────────────────────────────────────────
@@ -44,8 +44,14 @@ interface AppState {
   addAlert: (alert: Omit<Alert, "id" | "createdAt" | "triggered">) => void;
   removeAlert: (id: string) => void;
   toggleAlert: (id: string) => void;
+  /** Reset a triggered alert so it can fire again. */
+  rearmAlert: (id: string) => void;
   /** Check current pool data against all enabled alerts and mark triggered ones. */
   triggerAlerts: (pools: Pool[]) => void;
+
+  // Alert history log (last 100 fires)
+  alertHistory: AlertHistoryEntry[];
+  clearAlertHistory: () => void;
 
   // Custom token selections (per-chain) for the TokenPicker
   customTokens: (TokenInfo & { chainId: ChainId })[];
@@ -132,27 +138,63 @@ export const useAppStore = create<AppState>()(
         set((s) => ({
           alerts: s.alerts.map((a) => (a.id === id ? { ...a, enabled: !a.enabled } : a)),
         })),
-      triggerAlerts: (pools) =>
+      rearmAlert: (id) =>
         set((s) => ({
-          alerts: s.alerts.map((a) => {
+          alerts: s.alerts.map((a) =>
+            a.id === id
+              ? { ...a, triggered: false, triggeredAt: undefined, rearmCount: (a.rearmCount ?? 0) + 1 }
+              : a,
+          ),
+        })),
+      triggerAlerts: (pools) =>
+        set((s) => {
+          const now = Date.now() / 1000;
+          const newHistory: AlertHistoryEntry[] = [];
+          const updatedAlerts = s.alerts.map((a) => {
             if (!a.enabled || a.triggered) return a;
             const pool = pools.find((p) => p.id === a.poolId && p.chainId === a.chainId);
             if (!pool) return a;
-            const currentValue =
-              a.type === "apr_spike" || a.type === "range_exit"
-                ? pool.feeAPR ?? 0
-                : a.type === "volume_surge"
-                ? pool.volumeUSD24h
-                : pool.feesUSD24h;
-            // range_exit triggers when APR drops BELOW threshold; all others exceed
+
+            let currentValue: number;
+            if (a.type === "apr_spike" || a.type === "range_exit") {
+              currentValue = pool.feeAPR ?? 0;
+            } else if (a.type === "volume_surge") {
+              currentValue = pool.volumeUSD24h;
+            } else if (a.type === "fee_collect") {
+              currentValue = pool.feesUSD24h;
+            } else if (a.type === "price_above" || a.type === "price_below") {
+              // token0Price = price of token0 in token1 units
+              currentValue = pool.token0Price;
+            } else {
+              currentValue = 0;
+            }
+
             const fires =
-              a.type === "range_exit"
+              a.type === "range_exit" || a.type === "price_below"
                 ? currentValue < a.threshold
                 : currentValue >= a.threshold;
+
             if (!fires) return { ...a, currentValue };
-            return { ...a, triggered: true, triggeredAt: Date.now() / 1000, currentValue };
-          }),
-        })),
+
+            newHistory.push({
+              alertId: a.id,
+              type: a.type,
+              poolLabel: a.poolLabel,
+              chainId: a.chainId,
+              threshold: a.threshold,
+              firedValue: currentValue,
+              firedAt: now,
+            });
+            return { ...a, triggered: true, triggeredAt: now, currentValue };
+          });
+
+          const combined = [...s.alertHistory, ...newHistory].slice(-100);
+          return { alerts: updatedAlerts, alertHistory: combined };
+        }),
+
+      // ── Alert history ────────────────────────────────────────────────
+      alertHistory: [],
+      clearAlertHistory: () => set({ alertHistory: [] }),
 
       // ── Custom tokens ─────────────────────────────────────────────────
       customTokens: [],
@@ -182,6 +224,7 @@ export const useAppStore = create<AppState>()(
           anonymousId: s.anonymousId,
           watchlist: s.watchlist,
           alerts: s.alerts,
+          alertHistory: s.alertHistory,
           customTokens: s.customTokens,
           overrideAddress: s.overrideAddress,
           filters: s.filters,
@@ -194,6 +237,7 @@ export const useAppStore = create<AppState>()(
           set((s) => ({
             ...(Array.isArray(data.watchlist) ? { watchlist: data.watchlist } : {}),
             ...(Array.isArray(data.alerts) ? { alerts: data.alerts } : {}),
+            ...(Array.isArray(data.alertHistory) ? { alertHistory: data.alertHistory } : {}),
             ...(Array.isArray(data.customTokens) ? { customTokens: data.customTokens } : {}),
             ...(data.overrideAddress !== undefined ? { overrideAddress: data.overrideAddress } : {}),
             ...(data.filters && typeof data.filters === "object"
@@ -228,6 +272,7 @@ export const useAppStore = create<AppState>()(
         filters: s.filters,
         watchlist: s.watchlist,
         alerts: s.alerts,
+        alertHistory: s.alertHistory,
         customTokens: s.customTokens,
         sidebarCollapsed: s.sidebarCollapsed,
         notificationSettings: s.notificationSettings,

@@ -1,6 +1,7 @@
 ﻿"use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   BarChart3,
   Search,
@@ -580,10 +581,30 @@ function PoolDetailPanel({ pool }: { pool: Pool }) {
 
 // --- Page ---
 
-export default function ExplorerPage() {
+function ExplorerPageContent() {
+  const searchParams = useSearchParams();
+  const poolParam = searchParams?.get("pool");
+  const chainParam = searchParams?.get("chain");
+
   const { allPools, isLoading } = usePools();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Pool | null>(null);
+
+  // Auto-select pool when arriving from a link with ?pool=&chain= params
+  useEffect(() => {
+    if (!poolParam || !allPools?.length) return;
+    // Only auto-select once (don't override a manual selection)
+    setSelected((prev) => {
+      if (prev) return prev;
+      const chainId = chainParam ? parseInt(chainParam) : null;
+      const match = allPools.find(
+        (p) =>
+          p.id.toLowerCase() === poolParam.toLowerCase() &&
+          (!chainId || p.chainId === chainId),
+      );
+      return match ?? null;
+    });
+  }, [poolParam, chainParam, allPools]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -657,5 +678,26 @@ export default function ExplorerPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ExplorerPage() {
+  return (
+    <Suspense fallback={
+      <div className="max-w-7xl mx-auto space-y-5">
+        <div className="h-8 w-48 rounded bg-secondary animate-pulse" />
+        <div className="h-9 w-72 rounded bg-secondary animate-pulse" />
+        <div className="flex gap-5">
+          <div className="w-72 space-y-1">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="h-14 w-full rounded-lg bg-secondary animate-pulse" />
+            ))}
+          </div>
+          <div className="flex-1 h-60 rounded-lg bg-secondary animate-pulse" />
+        </div>
+      </div>
+    }>
+      <ExplorerPageContent />
+    </Suspense>
   );
 }

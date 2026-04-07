@@ -21,6 +21,12 @@ export const CHAIN_COLORS: Record<ChainId, string> = {
   56: "#F3BA2F",
 };
 
+export const CHAIN_LOGOS: Record<ChainId, string> = {
+  1: "https://assets.coingecko.com/coins/images/279/small/ethereum.png",
+  8453: "https://assets.coingecko.com/asset_platforms/images/131/small/base-network-logo.png",
+  56: "https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png",
+};
+
 // ─── Uniswap V3 contract addresses ────────────────────────────────────────
 /** NonfungiblePositionManager — same address on all Uniswap V3 chains */
 export const NFT_POSITION_MANAGER = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88";

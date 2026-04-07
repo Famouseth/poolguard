@@ -1,6 +1,9 @@
+"use client";
+
 /**
  * Shared: TokenPair — displays a token pair logo + symbols.
  */
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import type { TokenInfo } from "@/types";
 
@@ -32,19 +35,32 @@ const TOKEN_COLOURS: Record<string, [string, string]> = {
 
 function TokenAvatar({ token, size, className }: { token: TokenInfo; size: "sm" | "md" | "lg"; className?: string }) {
   const px = size === "sm" ? 20 : size === "md" ? 24 : 32;
+  const [imgError, setImgError] = useState(false);
   const [from, to] = TOKEN_COLOURS[token.symbol] ?? ["#4B5563", "#6B7280"];
+  const showImg = !!token.logoURI && !imgError;
 
   return (
     <div
-      className={cn("rounded-full flex items-center justify-center font-bold text-white shrink-0 border border-border", className)}
+      className={cn("rounded-full flex items-center justify-center font-bold text-white shrink-0 border border-border overflow-hidden", className)}
       style={{
         width: px,
         height: px,
-        fontSize: px * 0.36,
-        background: `linear-gradient(135deg, ${from}, ${to})`,
+        fontSize: showImg ? undefined : px * 0.36,
+        background: showImg ? undefined : `linear-gradient(135deg, ${from}, ${to})`,
       }}
     >
-      {token.symbol.slice(0, 2)}
+      {showImg ? (
+        <img
+          src={token.logoURI!}
+          alt={token.symbol}
+          width={px}
+          height={px}
+          style={{ width: px, height: px, objectFit: "cover" }}
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        token.symbol.slice(0, 2)
+      )}
     </div>
   );
 }

@@ -1,7 +1,10 @@
+"use client";
+
 /**
- * Shared: ChainBadge — coloured pill showing the chain name.
+ * Shared: ChainBadge — coloured pill showing the chain name + logo.
  */
-import { CHAIN_SHORT, CHAIN_COLORS } from "@/lib/constants";
+import { useState } from "react";
+import { CHAIN_SHORT, CHAIN_COLORS, CHAIN_LOGOS } from "@/lib/constants";
 import type { ChainId } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +17,9 @@ interface ChainBadgeProps {
 export function ChainBadge({ chainId, className, size = "sm" }: ChainBadgeProps) {
   const color = CHAIN_COLORS[chainId];
   const label = CHAIN_SHORT[chainId];
+  const logoSrc = CHAIN_LOGOS[chainId];
+  const [imgError, setImgError] = useState(false);
+  const iconSize = size === "sm" ? 12 : 14;
 
   return (
     <span
@@ -24,14 +30,25 @@ export function ChainBadge({ chainId, className, size = "sm" }: ChainBadgeProps)
       )}
       style={{ backgroundColor: `${color}22`, color }}
     >
-      <span
-        className="inline-block rounded-full"
-        style={{
-          width: size === "sm" ? 5 : 6,
-          height: size === "sm" ? 5 : 6,
-          backgroundColor: color,
-        }}
-      />
+      {!imgError ? (
+        <img
+          src={logoSrc}
+          alt={label}
+          width={iconSize}
+          height={iconSize}
+          style={{ width: iconSize, height: iconSize, borderRadius: "50%", objectFit: "cover" }}
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        <span
+          className="inline-block rounded-full"
+          style={{
+            width: size === "sm" ? 5 : 6,
+            height: size === "sm" ? 5 : 6,
+            backgroundColor: color,
+          }}
+        />
+      )}
       {label}
     </span>
   );

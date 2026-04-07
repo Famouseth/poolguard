@@ -1,6 +1,5 @@
 "use client";
 
-import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { RefreshCw } from "lucide-react";
 import { useQueryClient, useIsFetching } from "@tanstack/react-query";
 import { usePathname } from "next/navigation";
@@ -85,13 +84,6 @@ export function Header() {
         >
           <RefreshCw className={cn("w-4 h-4", fetching > 0 && "animate-spin")} />
         </button>
-
-        {/* Wallet connect */}
-        <ConnectButton
-          accountStatus="avatar"
-          chainStatus="icon"
-          showBalance={false}
-        />
       </div>
     </header>
   );

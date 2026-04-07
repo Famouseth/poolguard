@@ -5,7 +5,6 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useAccount } from "wagmi";
 import { useAppStore } from "@/store";
 import type { Position, ChainId } from "@/types";
 
@@ -28,11 +27,9 @@ async function fetchPositionsForChain(
 }
 
 export function usePositions() {
-  const { address: connectedAddress } = useAccount();
   const { overrideAddress } = useAppStore();
 
-  // Use override address (manually pasted) or connected wallet
-  const owner = overrideAddress ?? connectedAddress ?? null;
+  const owner = overrideAddress ?? null;
 
   const query = useQuery({
     queryKey: ["positions", owner],

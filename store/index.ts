@@ -1,11 +1,27 @@
 /**
  * Zustand global store for PoolGuard.
- * Handles wallet address override, watchlist, alerts, and pool filters.
+ * Handles wallet address override, watchlist, alerts, pool filters,
+ * anonymous identity, and data export / import.
  */
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { Alert, ChainId, PoolFilters, WatchlistItem, TokenInfo } from "@/types";
+import type { Alert, AlertType, ChainId, Pool, PoolFilters, WatchlistItem, TokenInfo } from "@/types";
 import { SUPPORTED_CHAINS, FEE_TIERS } from "@/lib/constants";
+
+// ─── Anonymous ID helper ─────────────────────────────────────────────────────
+
+function generateAnonymousId(): string {
+  try {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+  } catch {}
+  // Fallback for older browsers
+  return "xxxxxxxxxxxx4xxxyxxxxxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
 
 interface AppState {
   // Wallet / address override (user can paste any address)
@@ -28,12 +44,21 @@ interface AppState {
   addAlert: (alert: Omit<Alert, "id" | "createdAt" | "triggered">) => void;
   removeAlert: (id: string) => void;
   toggleAlert: (id: string) => void;
+  /** Check current pool data against all enabled alerts and mark triggered ones. */
+  triggerAlerts: (pools: Pool[]) => void;
 
   // Custom token selections (per-chain) for the TokenPicker
   customTokens: (TokenInfo & { chainId: ChainId })[];
   addCustomToken: (token: TokenInfo & { chainId: ChainId }) => void;
   removeCustomToken: (address: string, chainId: ChainId) => void;
   clearCustomTokens: () => void;
+
+  // Anonymous identity — no PII, generated once and persisted
+  anonymousId: string;
+
+  // Data backup / restore (no server needed)
+  exportData: () => string;
+  importData: (json: string) => boolean;
 
   // UI state
   sidebarCollapsed: boolean;
@@ -50,8 +75,6 @@ const DEFAULT_FILTERS: PoolFilters = {
   sortBy: "feeAPR",
   sortDirection: "desc",
 };
-
-let alertCounter = 0;
 
 export const useAppStore = create<AppState>()(
   persist(
@@ -92,10 +115,10 @@ export const useAppStore = create<AppState>()(
             ...s.alerts,
             {
               ...alertData,
-              id: `alert-${++alertCounter}-${Date.now()}`,
+              id: `alert-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
               triggered: false,
               createdAt: Date.now() / 1000,
-              enabled: true,
+              enabled: alertData.enabled ?? true,
             },
           ],
         })),
@@ -104,6 +127,27 @@ export const useAppStore = create<AppState>()(
       toggleAlert: (id) =>
         set((s) => ({
           alerts: s.alerts.map((a) => (a.id === id ? { ...a, enabled: !a.enabled } : a)),
+        })),
+      triggerAlerts: (pools) =>
+        set((s) => ({
+          alerts: s.alerts.map((a) => {
+            if (!a.enabled || a.triggered) return a;
+            const pool = pools.find((p) => p.id === a.poolId && p.chainId === a.chainId);
+            if (!pool) return a;
+            const currentValue =
+              a.type === "apr_spike" || a.type === "range_exit"
+                ? pool.feeAPR ?? 0
+                : a.type === "volume_surge"
+                ? pool.volumeUSD24h
+                : pool.feesUSD24h;
+            // range_exit triggers when APR drops BELOW threshold; all others exceed
+            const fires =
+              a.type === "range_exit"
+                ? currentValue < a.threshold
+                : currentValue >= a.threshold;
+            if (!fires) return { ...a, currentValue };
+            return { ...a, triggered: true, triggeredAt: Date.now() / 1000, currentValue };
+          }),
         })),
 
       // ── Custom tokens ─────────────────────────────────────────────────
@@ -123,6 +167,41 @@ export const useAppStore = create<AppState>()(
         })),
       clearCustomTokens: () => set({ customTokens: [] }),
 
+      // ── Anonymous identity ────────────────────────────────────────────
+      anonymousId: generateAnonymousId(),
+
+      // ── Export / Import ───────────────────────────────────────────────
+      exportData: () => {
+        const s = get();
+        return JSON.stringify({
+          version: 1,
+          anonymousId: s.anonymousId,
+          watchlist: s.watchlist,
+          alerts: s.alerts,
+          customTokens: s.customTokens,
+          overrideAddress: s.overrideAddress,
+          filters: s.filters,
+        }, null, 2);
+      },
+      importData: (json: string) => {
+        try {
+          const data = JSON.parse(json);
+          if (typeof data !== "object" || data === null || data.version !== 1) return false;
+          set((s) => ({
+            ...(Array.isArray(data.watchlist) ? { watchlist: data.watchlist } : {}),
+            ...(Array.isArray(data.alerts) ? { alerts: data.alerts } : {}),
+            ...(Array.isArray(data.customTokens) ? { customTokens: data.customTokens } : {}),
+            ...(data.overrideAddress !== undefined ? { overrideAddress: data.overrideAddress } : {}),
+            ...(data.filters && typeof data.filters === "object"
+              ? { filters: { ...s.filters, ...data.filters } }
+              : {}),
+          }));
+          return true;
+        } catch {
+          return false;
+        }
+      },
+
       // ── UI ───────────────────────────────────────────────────────────────
       sidebarCollapsed: false,
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
@@ -130,8 +209,8 @@ export const useAppStore = create<AppState>()(
     {
       name: "poolguard-store",
       storage: createJSONStorage(() => localStorage),
-      // Only persist user preferences, not transient UI state
       partialize: (s) => ({
+        anonymousId: s.anonymousId,
         overrideAddress: s.overrideAddress,
         filters: s.filters,
         watchlist: s.watchlist,

@@ -45,10 +45,16 @@ export function Sidebar() {
     >
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-4 h-16 border-b border-border">
-        <Shield className="w-6 h-6 text-primary shrink-0" />
+        <Shield
+          className="w-5 h-5 text-primary shrink-0"
+          style={{ filter: "drop-shadow(0 0 5px #00ff41)" }}
+        />
         {!sidebarCollapsed && (
-          <span className="font-bold text-lg tracking-tight text-foreground">
-            Pool<span className="text-primary">Guard</span>
+          <span
+            className="font-bold text-base tracking-widest uppercase text-primary"
+            style={{ textShadow: "0 0 8px rgba(0,255,65,0.75), 0 0 20px rgba(0,255,65,0.3)" }}
+          >
+            Pool<span className="opacity-35">:</span>Guard
           </span>
         )}
       </div>

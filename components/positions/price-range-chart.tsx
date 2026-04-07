@@ -120,19 +120,19 @@ export function PriceRangeChart({
           {/* Current price */}
           <ReferenceLine
             y={currentPrice}
-            stroke="#3B82F6"
+            stroke="#00ff41"
             strokeWidth={1.5}
             label={{
               value: "NOW",
               position: "right",
               fontSize: 9,
-              fill: "#3B82F6",
+              fill: "#00ff41",
               fontWeight: 600,
             }}
           />
 
           {/* Price line */}
-          <Bar dataKey="price" fill="#3B82F6" fillOpacity={0.7} radius={[2, 2, 0, 0]} />
+          <Bar dataKey="price" fill="#00c832" fillOpacity={0.65} radius={[2, 2, 0, 0]} />
         </ComposedChart>
       </ResponsiveContainer>
 
@@ -140,7 +140,7 @@ export function PriceRangeChart({
       <div className="mt-2">
         <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
           <span>{priceLower.toFixed(priceLower > 100 ? 2 : 4)}</span>
-          <span className="text-blue-400 font-medium">
+          <span className="text-primary font-medium">
             {currentPrice.toFixed(currentPrice > 100 ? 2 : 4)} (current)
           </span>
           <span>{priceUpper.toFixed(priceUpper > 100 ? 2 : 4)}</span>

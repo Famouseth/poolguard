@@ -324,23 +324,23 @@ function PoolDetailPanel({ pool }: { pool: Pool }) {
                   <AreaChart data={chartData} margin={{ left: 0, right: 0, top: 4, bottom: 0 }}>
                     <defs>
                       <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.35} />
-                        <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                        <stop offset="5%" stopColor="#00ff41" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#00ff41" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(217,32%,14%)" />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(133,60%,8%)" />
                     <XAxis dataKey="label" tick={{ fontSize: 9 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
                     <YAxis tick={{ fontSize: 9 }} tickLine={false} axisLine={false} width={60} tickFormatter={(v: number) => v >= 1000 ? `$${(v / 1000).toFixed(1)}K` : `$${v.toFixed(v < 1 ? 4 : 2)}`} domain={["auto", "auto"]} />
-                    <Tooltip contentStyle={{ background: "hsl(222,47%,9%)", border: "1px solid hsl(217,32%,18%)", borderRadius: 6, fontSize: 11 }} formatter={(v: number) => [`$${v >= 1000 ? v.toFixed(2) : v.toFixed(v < 1 ? 6 : 4)}`, "Price"]} />
-                    <Area type="monotone" dataKey="price" stroke="#3B82F6" fill="url(#priceGrad)" strokeWidth={1.5} dot={false} activeDot={{ r: 3 }} />
+                    <Tooltip contentStyle={{ background: "hsl(130,80%,3%)", border: "1px solid hsl(133,60%,14%)", borderRadius: 4, fontSize: 11 }} formatter={(v: number) => [`$${v >= 1000 ? v.toFixed(2) : v.toFixed(v < 1 ? 6 : 4)}`, "Price"]} />
+                    <Area type="monotone" dataKey="price" stroke="#00ff41" fill="url(#priceGrad)" strokeWidth={1.5} dot={false} activeDot={{ r: 3, fill: "#00ff41" }} />
                   </AreaChart>
                 </ResponsiveContainer>
                 <ResponsiveContainer width="100%" height={60}>
                   <BarChart data={chartData} margin={{ left: 0, right: 0 }}>
                     <XAxis dataKey="label" hide />
                     <YAxis hide />
-                    <Tooltip contentStyle={{ background: "hsl(222,47%,9%)", border: "1px solid hsl(217,32%,18%)", borderRadius: 6, fontSize: 11 }} formatter={(v: number) => [formatUSD(v, true), "Volume"]} />
-                    <Bar dataKey="volume" fill="#3B82F6" opacity={0.5} radius={[1, 1, 0, 0]} />
+                    <Tooltip contentStyle={{ background: "hsl(130,80%,3%)", border: "1px solid hsl(133,60%,14%)", borderRadius: 4, fontSize: 11 }} formatter={(v: number) => [formatUSD(v, true), "Volume"]} />
+                    <Bar dataKey="volume" fill="#00c832" opacity={0.55} radius={[1, 1, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

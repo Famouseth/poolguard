@@ -54,17 +54,31 @@ export function Header() {
   }
 
   return (
-    <header className="h-16 border-b border-border px-6 flex items-center justify-between bg-background/80 backdrop-blur-sm sticky top-0 z-20">
-      <h1 className="text-base font-semibold text-foreground">{title}</h1>
+    <header
+      className="h-16 border-b border-border px-6 flex items-center justify-between bg-background/90 backdrop-blur-sm sticky top-0 z-20"
+      style={{ boxShadow: "0 1px 0 rgba(0,255,65,0.12)" }}
+    >      <h1
+        className="text-base font-bold text-primary uppercase tracking-widest"
+        style={{ textShadow: "0 0 8px rgba(0,255,65,0.6)" }}
+      >
+        {title}
+      </h1>
 
       <div className="flex items-center gap-3">
         {/* Live data indicator */}
         <div className="hidden sm:flex items-center gap-1.5 text-xs">
           <span
             className={cn(
-              "w-1.5 h-1.5 rounded-full transition-colors",
-              fetching > 0 ? "bg-profit animate-pulse" : "bg-profit/50",
+              "w-2 h-2 rounded-full transition-colors",
+              fetching > 0
+                ? "bg-primary animate-pulse"
+                : "bg-primary",
             )}
+            style={{
+              boxShadow: fetching > 0
+                ? "0 0 6px #00ff41, 0 0 12px rgba(0,255,65,0.5)"
+                : "0 0 4px rgba(0,255,65,0.4)",
+            }}
           />
           {fetching > 0 ? (
             <span className="text-profit font-medium">updating…</span>

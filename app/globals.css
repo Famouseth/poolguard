@@ -2,41 +2,43 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── CSS Variables (always dark) ──────────────────────────────────────── */
+/* ─── Matrix Theme — CSS Variables ─────────────────────────────────────── */
 :root {
-  /* Deep dark background */
-  --background: 222 47% 5%;
-  --foreground: 213 31% 91%;
+  /* Deep black — barely-there green tint */
+  --background: 130 100% 1.5%;   /* ~#000300 */
+  --foreground: 130 60% 88%;     /* pale matrix green */
 
-  --card: 222 47% 8%;
-  --card-foreground: 213 31% 91%;
+  --card: 130 80% 3%;
+  --card-foreground: 130 60% 88%;
 
-  --popover: 222 47% 9%;
-  --popover-foreground: 213 31% 91%;
+  --popover: 130 80% 3.5%;
+  --popover-foreground: 130 60% 88%;
 
-  --primary: 217 91% 60%;
-  --primary-foreground: 222 47% 5%;
+  /* Matrix green — #00ff41 → hsl(133 100% 50%) */
+  --primary: 133 100% 50%;
+  --primary-foreground: 0 0% 0%;
 
-  --secondary: 217 32% 17%;
-  --secondary-foreground: 213 31% 91%;
+  --secondary: 133 60% 7%;
+  --secondary-foreground: 133 70% 72%;
 
-  --muted: 217 32% 14%;
-  --muted-foreground: 215 20% 55%;
+  --muted: 133 40% 5.5%;
+  --muted-foreground: 133 28% 42%;
 
-  --accent: 262 83% 58%;
-  --accent-foreground: 213 31% 91%;
+  --accent: 133 90% 35%;
+  --accent-foreground: 130 60% 90%;
 
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 213 31% 91%;
+  --destructive: 350 90% 56%;
+  --destructive-foreground: 0 0% 100%;
 
-  --border: 217 32% 13%;
-  --input: 217 32% 13%;
-  --ring: 217 91% 60%;
+  --border: 133 60% 10%;
+  --input: 133 50% 8%;
+  --ring: 133 100% 50%;
 
-  --radius: 0.5rem;
+  /* Sharper corners — terminal feel */
+  --radius: 0.2rem;
 }
 
-/* Force dark mode on <html> (set via layout.tsx) */
+/* ─── Base ──────────────────────────────────────────────────────────────── */
 @layer base {
   * {
     @apply border-border;
@@ -48,79 +50,135 @@
 
   body {
     @apply bg-background text-foreground antialiased;
+    font-family: var(--font-geist-mono), "Courier New", monospace;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
-  /* Remove default link styling in UI */
   a {
     @apply no-underline;
   }
 }
 
-/* ─── Custom scrollbar ──────────────────────────────────────────────────── */
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-::-webkit-scrollbar-track {
-  background: hsl(222, 47%, 7%);
-}
+/* ─── Matrix scrollbar ──────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: hsl(130, 100%, 1.5%); }
 ::-webkit-scrollbar-thumb {
-  background: hsl(217, 32%, 22%);
-  border-radius: 3px;
+  background: hsl(133, 70%, 16%);
+  border-radius: 2px;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: hsl(217, 91%, 50%);
+::-webkit-scrollbar-thumb:hover { background: hsl(133, 100%, 38%); }
+
+/* ─── Scanlines overlay ─────────────────────────────────────────────────── */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 255, 65, 0.012) 2px,
+    rgba(0, 255, 65, 0.012) 4px
+  );
+  pointer-events: none;
+  z-index: 9998;
 }
 
-/* ─── DeFi-specific helpers ─────────────────────────────────────────────── */
+/* ─── Utilities ─────────────────────────────────────────────────────────── */
 @layer utilities {
-  .text-profit {
-    color: #22c55e;
-  }
-  .text-loss {
-    color: #ef4444;
-  }
-  .text-warn {
-    color: #f59e0b;
+  /* Profit / loss / warn */
+  .text-profit { color: #00ff41; }
+  .text-loss   { color: #ff3355; }
+  .text-warn   { color: #f0c000; }
+
+  /* Matrix glow — applied to headings / key numbers */
+  .matrix-glow {
+    text-shadow:
+      0 0 6px rgba(0, 255, 65, 0.9),
+      0 0 18px rgba(0, 255, 65, 0.5),
+      0 0 36px rgba(0, 255, 65, 0.2);
   }
 
-  /* Glass card effect */
+  /* Glass card — dark + green border glow */
   .glass {
     @apply backdrop-blur-sm bg-card/80 border border-border/60;
+    box-shadow:
+      0 0 0 1px rgba(0, 255, 65, 0.06),
+      0 4px 32px rgba(0, 0, 0, 0.7),
+      inset 0 1px 0 rgba(0, 255, 65, 0.08);
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+  .glass:hover {
+    box-shadow:
+      0 0 0 1px rgba(0, 255, 65, 0.16),
+      0 4px 32px rgba(0, 0, 0, 0.7),
+      inset 0 1px 0 rgba(0, 255, 65, 0.14);
+    border-color: rgba(0, 255, 65, 0.18) !important;
   }
 
-  /* Number font for financial data */
+  /* Tabular numbers */
   .tabular-nums {
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum";
   }
 
-  /* Subtle gradient background for hero sections */
+  /* Hero gradient — matrix green radial */
   .hero-gradient {
-    background: radial-gradient(
-      ellipse 80% 50% at 50% -20%,
-      hsl(217 91% 60% / 0.15),
-      transparent
-    );
+    background:
+      radial-gradient(ellipse 70% 50% at 50% -5%, rgba(0, 255, 65, 0.10), transparent),
+      linear-gradient(180deg, rgba(0, 255, 65, 0.04) 0%, transparent 60%);
+    border-color: rgba(0, 255, 65, 0.22);
+    box-shadow:
+      0 0 50px rgba(0, 255, 65, 0.06),
+      inset 0 1px 0 rgba(0, 255, 65, 0.18);
   }
 }
 
-/* ─── Range chart styles ─────────────────────────────────────────────────── */
-.recharts-cartesian-grid line {
-  stroke: hsl(217, 32%, 16%);
-}
-.recharts-text {
-  fill: hsl(215, 20%, 55%);
-  font-size: 11px;
-}
+/* ─── Recharts — Matrix colors ──────────────────────────────────────────── */
+.recharts-cartesian-grid line    { stroke: hsl(133, 60%, 8%); }
+.recharts-text                   { fill: hsl(133, 28%, 40%); font-size: 11px; }
 .recharts-tooltip-wrapper .recharts-default-tooltip {
-  background: hsl(222, 47%, 9%) !important;
-  border: 1px solid hsl(217, 32%, 18%) !important;
-  border-radius: 6px;
+  background: hsl(130, 80%, 3%) !important;
+  border: 1px solid hsl(133, 60%, 14%) !important;
+  border-radius: 4px;
+  color: hsl(133, 60%, 80%) !important;
 }
 
-/* ─── Table hover ────────────────────────────────────────────────────────── */
+/* ─── Animations ────────────────────────────────────────────────────────── */
+@keyframes matrix-flicker {
+  0%, 88%, 90%, 92%, 100% { opacity: 1; }
+  89% { opacity: 0.82; }
+  91% { opacity: 0.94; }
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(0, 255, 65, 0.3), 0 0 16px rgba(0, 255, 65, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(0, 255, 65, 0.55), 0 0 32px rgba(0, 255, 65, 0.2);
+  }
+}
+
+@keyframes accordion-down {
+  from { height: 0; }
+  to   { height: var(--radix-accordion-content-height); }
+}
+@keyframes accordion-up {
+  from { height: var(--radix-accordion-content-height); }
+  to   { height: 0; }
+}
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+@keyframes shimmer {
+  0%   { background-position: -1000px 0; }
+  100% { background-position:  1000px 0; }
+}
+
+/* ─── Table hover ───────────────────────────────────────────────────────── */
 .table-row-hover:hover {
   @apply bg-secondary/40 cursor-pointer;
 }
+

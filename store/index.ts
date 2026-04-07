@@ -5,7 +5,7 @@
  */
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { Alert, AlertType, ChainId, Pool, PoolFilters, WatchlistItem, TokenInfo } from "@/types";
+import type { Alert, AlertType, ChainId, Pool, PoolFilters, WatchlistItem, TokenInfo, NotificationSettings } from "@/types";
 import { SUPPORTED_CHAINS, FEE_TIERS } from "@/lib/constants";
 
 // ─── Anonymous ID helper ─────────────────────────────────────────────────────
@@ -59,6 +59,10 @@ interface AppState {
   // Data backup / restore (no server needed)
   exportData: () => string;
   importData: (json: string) => boolean;
+
+  // Notification delivery settings — persisted locally
+  notificationSettings: NotificationSettings;
+  updateNotificationSettings: (partial: Partial<NotificationSettings>) => void;
 
   // UI state
   sidebarCollapsed: boolean;
@@ -202,6 +206,15 @@ export const useAppStore = create<AppState>()(
         }
       },
 
+      // ── Notifications ──────────────────────────────────────────────────
+      notificationSettings: {
+        telegram: { enabled: false, chatId: "" },
+        email:    { enabled: false, address: "" },
+        whatsapp: { enabled: false, number: "" },
+      },
+      updateNotificationSettings: (partial) =>
+        set((s) => ({ notificationSettings: { ...s.notificationSettings, ...partial } })),
+
       // ── UI ───────────────────────────────────────────────────────────────
       sidebarCollapsed: false,
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
@@ -217,6 +230,7 @@ export const useAppStore = create<AppState>()(
         alerts: s.alerts,
         customTokens: s.customTokens,
         sidebarCollapsed: s.sidebarCollapsed,
+        notificationSettings: s.notificationSettings,
       }),
     },
   ),

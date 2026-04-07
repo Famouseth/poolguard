@@ -156,6 +156,13 @@ export interface Alert {
   enabled: boolean;
 }
 
+// ─── Notifications ────────────────────────────────────────────────────────────
+export interface NotificationSettings {
+  telegram: { enabled: boolean; chatId: string };
+  email:    { enabled: boolean; address: string };
+  whatsapp: { enabled: boolean; number: string }; // E.164: +12125551234
+}
+
 export interface WatchlistItem {
   poolId: string;
   chainId: ChainId;

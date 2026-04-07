@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   Bell,
@@ -16,6 +16,12 @@ import {
   AlertTriangle,
   Eye,
   HardDrive,
+  MessageCircle,
+  Mail,
+  Phone,
+  Send,
+  Loader2,
+  Zap,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -55,6 +61,8 @@ export default function AlertsPage() {
     exportData,
     importData,
     anonymousId,
+    notificationSettings,
+    updateNotificationSettings,
   } = useAppStore();
   const { allPools, isLoading } = usePools();
 
@@ -67,6 +75,13 @@ export default function AlertsPage() {
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState("");
   const [importSuccess, setImportSuccess] = useState(false);
+  const [testingChannel, setTestingChannel] = useState<"telegram" | "email" | "whatsapp" | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, boolean | null>>({});
+
+  // Track which alert IDs have already been notified so we don't re-fire on mount
+  const prevTriggeredRef = useRef<Set<string>>(
+    new Set(alerts.filter((a) => a.triggered).map((a) => a.id)),
+  );
 
   // Auto-check alerts whenever live pool data arrives
   useEffect(() => {
@@ -74,6 +89,26 @@ export default function AlertsPage() {
       triggerAlerts(allPools);
     }
   }, [allPools, triggerAlerts]);
+
+  // Send notifications for alerts that just fired
+  useEffect(() => {
+    const nowTriggered = new Set(alerts.filter((a) => a.triggered).map((a) => a.id));
+    const justFired = alerts.filter(
+      (a) => a.triggered && !prevTriggeredRef.current.has(a.id),
+    );
+    prevTriggeredRef.current = nowTriggered;
+    if (!justFired.length) return;
+    const anyEnabled =
+      notificationSettings.telegram.enabled ||
+      notificationSettings.email.enabled ||
+      notificationSettings.whatsapp.enabled;
+    if (!anyEnabled) return;
+    fetch("/api/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ alerts: justFired, channels: notificationSettings }),
+    }).catch(() => {});
+  }, [alerts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filteredPools = (allPools ?? [])
     .filter((p) => {
@@ -125,6 +160,33 @@ export default function AlertsPage() {
       setImportError(
         'Invalid backup. Paste the full exported JSON (should start with "{").',
       );
+    }
+  }
+
+  async function handleTestChannel(ch: "telegram" | "email" | "whatsapp") {
+    setTestingChannel(ch);
+    setTestResults((p) => ({ ...p, [ch]: null }));
+    try {
+      const res = await fetch("/api/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ test: true, channels: notificationSettings }),
+      });
+      const data = (await res.json()) as {
+        results?: Record<string, { ok: boolean; waLink?: string }>;
+      };
+      const r = data.results?.[ch];
+      if (r?.waLink) {
+        window.open(r.waLink, "_blank", "noopener,noreferrer");
+        setTestResults((p) => ({ ...p, [ch]: true }));
+      } else {
+        setTestResults((p) => ({ ...p, [ch]: r?.ok ?? false }));
+      }
+    } catch {
+      setTestResults((p) => ({ ...p, [ch]: false }));
+    } finally {
+      setTestingChannel(null);
+      setTimeout(() => setTestResults((p) => ({ ...p, [ch]: null })), 4000);
     }
   }
 
@@ -500,6 +562,274 @@ export default function AlertsPage() {
               })}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* ── Notification Channels ───────────────────────────────────────── */}
+      <Card className="glass">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Zap className="w-4 h-4 text-primary" />
+            Notification Channels
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Get notified via Telegram, email, or WhatsApp the moment an alert fires.
+            Toggle a channel, enter your details, then hit{" "}
+            <strong className="text-foreground/70">Test</strong> to verify delivery.
+          </p>
+
+          {/* ── Telegram ─────────────────────────────────────────────── */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MessageCircle className="w-4 h-4 text-[#0088cc]" />
+                <span className="text-sm font-medium">Telegram</span>
+              </div>
+              <button
+                onClick={() =>
+                  updateNotificationSettings({
+                    telegram: {
+                      ...notificationSettings.telegram,
+                      enabled: !notificationSettings.telegram.enabled,
+                    },
+                  })
+                }
+                title={notificationSettings.telegram.enabled ? "Disable Telegram" : "Enable Telegram"}
+              >
+                {notificationSettings.telegram.enabled ? (
+                  <ToggleRight className="w-5 h-5 text-primary" />
+                ) : (
+                  <ToggleLeft className="w-5 h-5 text-muted-foreground" />
+                )}
+              </button>
+            </div>
+            {notificationSettings.telegram.enabled && (
+              <div className="pl-6 space-y-2">
+                <Input
+                  placeholder="Your Telegram Chat ID (e.g. 123456789)"
+                  value={notificationSettings.telegram.chatId}
+                  onChange={(e) =>
+                    updateNotificationSettings({
+                      telegram: { ...notificationSettings.telegram, chatId: e.target.value },
+                    })
+                  }
+                  className="text-sm"
+                />
+                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                  Get your Chat ID by messaging{" "}
+                  <a
+                    href="https://t.me/userinfobot"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline"
+                  >
+                    @userinfobot
+                  </a>{" "}
+                  on Telegram. Set{" "}
+                  <code className="font-mono bg-secondary px-1 rounded">TELEGRAM_BOT_TOKEN</code>{" "}
+                  in your environment (create a bot via{" "}
+                  <a
+                    href="https://t.me/BotFather"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline"
+                  >
+                    @BotFather
+                  </a>
+                  ).
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className={cn(
+                    "gap-2",
+                    testResults.telegram === true && "border-profit text-profit",
+                    testResults.telegram === false && "border-destructive text-destructive",
+                  )}
+                  disabled={!notificationSettings.telegram.chatId.trim() || testingChannel === "telegram"}
+                  onClick={() => handleTestChannel("telegram")}
+                >
+                  {testingChannel === "telegram" ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Send className="w-3.5 h-3.5" />
+                  )}
+                  {testResults.telegram === true
+                    ? "Sent!"
+                    : testResults.telegram === false
+                    ? "Failed"
+                    : "Test"}
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-border/40" />
+
+          {/* ── Email ────────────────────────────────────────────────── */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Mail className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium">Email</span>
+              </div>
+              <button
+                onClick={() =>
+                  updateNotificationSettings({
+                    email: {
+                      ...notificationSettings.email,
+                      enabled: !notificationSettings.email.enabled,
+                    },
+                  })
+                }
+                title={notificationSettings.email.enabled ? "Disable Email" : "Enable Email"}
+              >
+                {notificationSettings.email.enabled ? (
+                  <ToggleRight className="w-5 h-5 text-primary" />
+                ) : (
+                  <ToggleLeft className="w-5 h-5 text-muted-foreground" />
+                )}
+              </button>
+            </div>
+            {notificationSettings.email.enabled && (
+              <div className="pl-6 space-y-2">
+                <Input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={notificationSettings.email.address}
+                  onChange={(e) =>
+                    updateNotificationSettings({
+                      email: { ...notificationSettings.email, address: e.target.value },
+                    })
+                  }
+                  className="text-sm"
+                />
+                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                  Requires{" "}
+                  <code className="font-mono bg-secondary px-1 rounded">RESEND_API_KEY</code>{" "}
+                  and{" "}
+                  <code className="font-mono bg-secondary px-1 rounded">RESEND_FROM_EMAIL</code>{" "}
+                  env vars. Free tier at{" "}
+                  <a
+                    href="https://resend.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline"
+                  >
+                    resend.com
+                  </a>{" "}
+                  (3,000 emails/month).
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className={cn(
+                    "gap-2",
+                    testResults.email === true && "border-profit text-profit",
+                    testResults.email === false && "border-destructive text-destructive",
+                  )}
+                  disabled={!notificationSettings.email.address.trim() || testingChannel === "email"}
+                  onClick={() => handleTestChannel("email")}
+                >
+                  {testingChannel === "email" ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Send className="w-3.5 h-3.5" />
+                  )}
+                  {testResults.email === true
+                    ? "Sent!"
+                    : testResults.email === false
+                    ? "Failed"
+                    : "Test"}
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-border/40" />
+
+          {/* ── WhatsApp ─────────────────────────────────────────────── */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Phone className="w-4 h-4 text-[#25D366]" />
+                <span className="text-sm font-medium">WhatsApp</span>
+              </div>
+              <button
+                onClick={() =>
+                  updateNotificationSettings({
+                    whatsapp: {
+                      ...notificationSettings.whatsapp,
+                      enabled: !notificationSettings.whatsapp.enabled,
+                    },
+                  })
+                }
+                title={notificationSettings.whatsapp.enabled ? "Disable WhatsApp" : "Enable WhatsApp"}
+              >
+                {notificationSettings.whatsapp.enabled ? (
+                  <ToggleRight className="w-5 h-5 text-primary" />
+                ) : (
+                  <ToggleLeft className="w-5 h-5 text-muted-foreground" />
+                )}
+              </button>
+            </div>
+            {notificationSettings.whatsapp.enabled && (
+              <div className="pl-6 space-y-2">
+                <Input
+                  type="tel"
+                  placeholder="+12125551234 (E.164 format)"
+                  value={notificationSettings.whatsapp.number}
+                  onChange={(e) =>
+                    updateNotificationSettings({
+                      whatsapp: { ...notificationSettings.whatsapp, number: e.target.value },
+                    })
+                  }
+                  className="text-sm"
+                />
+                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                  Automated sending requires{" "}
+                  <a
+                    href="https://www.twilio.com/en-us/messaging/channels/whatsapp"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline"
+                  >
+                    Twilio WhatsApp
+                  </a>{" "}
+                  (env vars:{" "}
+                  <code className="font-mono bg-secondary px-1 rounded">TWILIO_ACCOUNT_SID</code>,{" "}
+                  <code className="font-mono bg-secondary px-1 rounded">TWILIO_AUTH_TOKEN</code>,{" "}
+                  <code className="font-mono bg-secondary px-1 rounded">TWILIO_WHATSAPP_FROM</code>
+                  ). Without those, Test opens a pre-filled{" "}
+                  <code className="font-mono">wa.me</code> link.
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className={cn(
+                    "gap-2",
+                    testResults.whatsapp === true && "border-profit text-profit",
+                    testResults.whatsapp === false && "border-destructive text-destructive",
+                  )}
+                  disabled={!notificationSettings.whatsapp.number.trim() || testingChannel === "whatsapp"}
+                  onClick={() => handleTestChannel("whatsapp")}
+                >
+                  {testingChannel === "whatsapp" ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Send className="w-3.5 h-3.5" />
+                  )}
+                  {testResults.whatsapp === true
+                    ? "Sent!"
+                    : testResults.whatsapp === false
+                    ? "Failed"
+                    : "Test"}
+                </Button>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
